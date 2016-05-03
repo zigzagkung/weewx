@@ -589,7 +589,7 @@ def update_to_v30(config_dict):
         manager = weewx.wxmanager.WXDaySummaryManager
         # The schema defines the structure of the database.
         # It is *only* used when the database is created.
-        schema = schemas.wview.schema
+        schema = schemas.weewx.schema
 
 """
 
