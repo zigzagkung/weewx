@@ -764,8 +764,8 @@ def reconfig(old_db_dict, new_db_dict, new_unit_system=None, new_schema=None):
     
     with Manager.open(old_db_dict) as old_archive:
         if new_schema is None:
-            import schemas.wview
-            new_schema = schemas.wview.schema
+            import schemas.weewx
+            new_schema = schemas.weewx.schema
         with Manager.open_with_create(new_db_dict, schema=new_schema) as new_archive:
 
             # Wrap the input generator in a unit converter.
@@ -847,7 +847,7 @@ class DBBinder(object):
 default_binding_dict = {'database'   : 'archive_sqlite',
                         'table_name' : 'archive',
                         'manager'    : 'weewx.wxmanager.WXDaySummaryManager',
-                        'schema'     : 'schemas.wview.schema'}
+                        'schema'     : 'schemas.weewx.schema'}
 
 def get_database_dict_from_config(config_dict, database):
     """Return a database dictionary holding the information necessary
