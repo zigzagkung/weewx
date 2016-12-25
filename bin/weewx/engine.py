@@ -449,6 +449,9 @@ class StdArchive(StdService):
             self.archive_delay = 15
             software_interval = 300
             self.loop_hilo = True
+        
+        # Initialize the accumulator configuration information:
+        weewx.accum.initialize(config_dict)
             
         syslog.syslog(syslog.LOG_INFO, "engine: Archive will use data binding %s" % self.data_binding)
         
