@@ -402,45 +402,108 @@ default_extract_dict = {'wind'      : Accum.wind_extract,
                         'yearRain'  : Accum.last_extract,
                         'totalRain' : Accum.last_extract}
 
-accum_type_dict = {}
-add_dict        = {}
-extract_dict    = {}
+
+defaults_ini = """
+[Accumulator]
+    [[dateTime]]
+        adder = noop
+    [[usUnits]]
+        adder = check_units
+    [[rain]]
+        aggregation = sum
+    [[ET]]
+        aggregation = sum
+    [[dayET]]
+        aggregation = last
+    [[monthET]]
+        aggregation = last
+    [[yearET]]
+        aggregation = last
+    [[hourRain]]
+        aggregation = last
+    [[dayRain]]
+        aggregation = last
+    [[rain24]]
+        aggregation = last
+    [[monthRain]]
+        aggregation = last
+    [[yearRain]]
+        aggregation = last
+    [[totalRain]]
+        aggregation = last
+    [[wind]]
+        accumulator = vector
+        aggregation = wind
+    [[windSpeed]]
+        adder = add_wind
+        aggregation = noop
+    [[windDir]]
+        aggregation = noop
+    [[windGust]]
+        aggregation = noop
+    [[windGustDir]]
+        aggregation = noop
+"""
+import StringIO
+defaults = configobj.ConfigObj(StringIO.StringIO(defaults_ini))
+del StringIO
+
+accum_type_dict = None
+add_dict        = None
+extract_dict    = None
 
 def initialize(config_dict):
     """Must be called before using any of the accumulators"""
+    
+    global defaults, accum_type_dict, add_dict, extract_dict
 
-    global accum_type_dict, add_dict, extract_dict
+    accum_type_dict = {}
+    add_dict        = {}
+    extract_dict    = {}
     
     # Initialize with the default values:    
-    accum_type_dict = dict(default_accum_type_dict)
-    add_dict = dict(default_add_dict)
-    extract_dict = dict(default_extract_dict)
+    _initialize(defaults)
 
     # Now do the overrides from the config file
+    _initialize(config_dict)
     
+def _initialize(config_dict):
+    global accum_type_dict, add_dict, extract_dict
+
     extras = config_dict.get('Accumulator', configobj.ConfigObj({}))
     for obs_type in extras.sections:
         # Get the accumulator type
-        accum_type = extras['Accumulator'][obs_type].get('accumulator', 'scalar').lower()
+        accum_type = extras[obs_type].get('accumulator', 'scalar').lower()
         # Fail hard if this is an unknown accumulator type
         accum_type_dict[obs_type] = accum_types[accum_type]
         
         # Get the adder function to use
-        add_function = extras['Accumulator'][obs_type].get('adder', 'add').lower()
+        add_function = extras[obs_type].get('adder', 'add').lower()
         # Fail hard if this is an unknown adder function
         add_dict[obs_type] = adder_functions[add_function]
 
         # Get the type of extraction function to use
-        extract_function = extras['Accumulator'][obs_type].get('aggregation', 'avg').lower()
+        extract_function = extras[obs_type].get('aggregation', 'avg').lower()
         # Fail hard if this is an unknown extraction type:
         extract_dict[obs_type] = extract_functions[extract_function]
     
 def new_accumulator(obs_type):
+    global accum_type_dict
+    # If the dictionaries have not been initialized, do so with the defaults
+    if accum_type_dict is None:
+        initialize(defaults)
     return accum_type_dict.get(obs_type, ScalarStats)()
 
 def get_add_function(obs_type):
+    global add_dict
+    # If the dictionaries have not been initialized, do so with the defaults
+    if add_dict is None:
+        initialize(defaults)
     return add_dict.get(obs_type, Accum.add_value)
     
 def get_extract_function(obs_type):
+    global extract_dict
+    # If the dictionaries have not been initialized, do so with the defaults
+    if extract_dict is None:
+        initialize(defaults)
     return extract_dict.get(obs_type, Accum.avg_extract)
-        
