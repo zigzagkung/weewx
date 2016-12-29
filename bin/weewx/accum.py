@@ -379,30 +379,6 @@ extract_functions = {'avg'  : Accum.avg_extract,
 # Default mappings from observation types to accumulator classes and functions
 #
 
-default_accum_type_dict = {'wind': VecStats}
-
-default_add_dict = {'windSpeed' : Accum.add_wind_value,
-                    'usUnits'   : Accum.check_units,
-                    'dateTime'  : Accum.noop}
-
-default_extract_dict = {'wind'      : Accum.wind_extract,
-                        'windSpeed' : Accum.noop,  # Extracted as part of 'wind'
-                        'windDir'   : Accum.noop,  # Extracted as part of 'wind'
-                        'windGust'  : Accum.noop,  # Extracted as part of 'wind'
-                        'windGustDir':Accum.noop,  # Extracted as part of 'wind'
-                        'rain'      : Accum.sum_extract,
-                        'ET'        : Accum.sum_extract,
-                        'dayET'     : Accum.last_extract,
-                        'monthET'   : Accum.last_extract,
-                        'yearET'    : Accum.last_extract,
-                        'hourRain'  : Accum.last_extract,
-                        'dayRain'   : Accum.last_extract,
-                        'rain24'    : Accum.last_extract,
-                        'monthRain' : Accum.last_extract,
-                        'yearRain'  : Accum.last_extract,
-                        'totalRain' : Accum.last_extract}
-
-
 defaults_ini = """
 [Accumulator]
     [[dateTime]]
