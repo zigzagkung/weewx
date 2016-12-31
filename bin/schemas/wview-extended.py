@@ -165,6 +165,11 @@ schema = [('dateTime',             'INTEGER NOT NULL UNIQUE PRIMARY KEY'),
           ('humidex6',             'REAL'),
           ('humidex7',             'REAL'),
           ('humidex8',             'REAL'),
+          ('lightning_strike_count',    'REAL'),
+          ('lightning_noise_count',     'REAL'),
+          ('lightning_disturber_count', 'REAL'),
+          ('lightning_distance',        'REAL'),
+          ('lightning_energy',          'REAL'),
           ]
 
 # logger capacity?
