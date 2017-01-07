@@ -172,19 +172,3 @@ schema = [('dateTime',             'INTEGER NOT NULL UNIQUE PRIMARY KEY'),
           ('lightning_distance',        'REAL'),
           ('lightning_energy',          'REAL'),
           ]
-
-# logger capacity?
-
-# units
-obs_group_dict['inTemp'] = 'group_temperature'
-obs_group_dict['outTemp'] = 'group_temperature'
-obs_group_dict['inHumidity'] = 'group_percent'
-obs_group_dict['outHumidity'] = 'group_percent'
-obs_group_dict['rxCheckPercent'] = 'group_percent'
-obs_group_dict['batteryVoltage1'] = 'group_volt'
-# FIXME: define units for these fields here
-
-# accumulators
-extract_dict['snow'] = Accum.sum_extract
-extract_dict['hail'] = Accum.sum_extract
-# FIXME: also day/month/year for these as last_extract?
