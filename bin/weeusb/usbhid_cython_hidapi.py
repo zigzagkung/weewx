@@ -30,6 +30,7 @@ class USBHID(USBHIDbase):
 
     def close(self):
         if self.dev:
+            self.dev.close()
             self.dev = None
 
     def _write(self, buf, reqtype=None, req=None, wval=None, timeout=50):
@@ -48,7 +49,7 @@ class USBHID(USBHIDbase):
     def get_usb_info():
         v = 'unknown'
         try:
-            v = hid.sys.version
+            v = hid.sys.version.replace('\n', ' ')
         except AttributeError:
             pass
         return "cython_hid_version=%s" % v
