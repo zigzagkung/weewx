@@ -111,8 +111,8 @@ class USBHID(USBHIDbase):
         'Nessun dato disponibile', 'Nessun errore',
         'Keine Daten verf', # verfuegbar
         'No hay datos disponibles',
-        'Pas de donn' # donnees disponibles
-        ]
+        'Pas de donn', # donnees disponibles
+        'Ingen data er tilgjengelige']
 
     def is_error(self, e):
         errmsg = repr(e)
