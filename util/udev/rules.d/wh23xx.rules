@@ -1,0 +1,2 @@
+# make any fine offset wh23xx station connected via usb accessible to non-root
+SUBSYSTEM=="usb", ATTRS{idVendor}=="10c4", ATTRS{idProduct}=="8468", MODE="0666"
