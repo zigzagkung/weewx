@@ -1,6 +1,6 @@
 # Copyright (c) 2017 Matthew Wall
 # See the file LICENSE.txt for your rights.
-"""USB HID abstraction using pyusb 1.x"""
+"""USB HID abstraction using pyusb 1.0"""
 
 import usb.core
 import usb.util

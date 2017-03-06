@@ -369,7 +369,6 @@ class WH23xxConfigurationEditor(weewx.drivers.AbstractConfEditor):
 class WH23xxDriver(weewx.drivers.AbstractDevice):
     def __init__(self, **stn_dict):
         loginf('driver version is %s' % DRIVER_VERSION)
-        loginf('usb info: %s' % weeusb.USBHID.get_usb_info())
         self._model = stn_dict.get('model', 'Tycon TP2700')
         self._poll_interval = int(stn_dict.get('poll_interval', 15))
         loginf('poll interval is %s' % self._poll_interval)
