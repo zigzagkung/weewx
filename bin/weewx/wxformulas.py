@@ -7,6 +7,7 @@
 """Various weather related formulas and utilities."""
 
 import math
+import syslog
 import time
 import weewx.uwxutils
 
@@ -61,7 +62,7 @@ def dewpointC(T, R):
 
 def windchillF(T_F, V_mph):
     """Calculate wind chill.
-    http://www.nws.noaa.gov/om/winter/windchill.shtml
+    http://www.nws.noaa.gov/om/cold/wind_chill.shtml
     
     T_F: Temperature in Fahrenheit
     
@@ -101,7 +102,7 @@ def windchillC(T_C, V_kph):
     
 def heatindexF(T, R):
     """Calculate heat index.
-    http://www.wpc.ncep.noaa.gov/html/heatindex_equation.shtml
+    http://www.nws.noaa.gov/om/heat/heat_index.shtml
     
     T: Temperature in Fahrenheit
     
@@ -222,6 +223,7 @@ def calculate_rain(newtotal, oldtotal):
         if newtotal >= oldtotal:
             delta = newtotal - oldtotal
         else:
+            syslog.syslog(syslog.LOG_INFO, "wxformulas: rain counter reset detected: new=%s old=%s" % (newtotal, oldtotal))
             delta = None
     else:
         delta = None

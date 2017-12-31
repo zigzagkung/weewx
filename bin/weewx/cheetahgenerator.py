@@ -65,6 +65,7 @@ import configobj
 import Cheetah.Template
 import Cheetah.Filters
 
+import weedb
 import weeutil.weeutil
 import weewx.almanac
 import weewx.reportengine
@@ -320,13 +321,13 @@ class CheetahGenerator(weewx.reportengine.ReportGenerator):
             tmpname = _fullname + '.tmp'
             
             try:
-                text = Cheetah.Template.Template(
+                compiled_template = Cheetah.Template.Template(
                     file=template,
                     searchList=searchList,
                     filter=encoding,
                     filtersLib=weewx.cheetahgenerator)
                 with open(tmpname, mode='w') as _file:
-                    print >> _file, text
+                    print >> _file, compiled_template
                 os.rename(tmpname, _fullname)
             except Exception, e:
                 # We would like to get better feedback when there are cheetah
@@ -476,8 +477,9 @@ class Almanac(SearchList):
         # weather database. The database might not exist, so be prepared for
         # a KeyError exception.
         try:
-            archive = self.generator.db_binder.get_manager()
-        except (KeyError, weewx.UnknownBinding):
+            binding = self.generator.skin_dict.get('data_binding', 'wx_binding')
+            archive = self.generator.db_binder.get_manager(binding)
+        except (KeyError, weewx.UnknownBinding, weedb.NoDatabaseError):
             pass
         else:
             # If a specific time has not been specified, then use the timestamp

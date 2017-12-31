@@ -8,8 +8,9 @@ etc., of a sequence of records."""
 
 import math
 
-import weewx
 import configobj
+
+import weewx
 
 class OutOfSpan(ValueError):
     """Raised when attempting to add a record outside of the timespan held by an accumulator"""
@@ -111,9 +112,10 @@ class VecStats(object):
         (self.min, self.mintime,
          self.max, self.maxtime,
          self.sum, self.count,
-         self.wsum, self.sumtime,
-         self.max_dir, self.xsum, self.ysum,
-         self.dirsumtime, self.squaresum, self.wsquaresum) = stats_tuple if stats_tuple else VecStats.default_init
+         self.wsum,self.sumtime,
+         self.max_dir, self.xsum, self.ysum, 
+         self.dirsumtime, self.squaresum, 
+         self.wsquaresum) = stats_tuple if stats_tuple else VecStats.default_init
         
     def getStatsTuple(self):
         """Return a stats-tuple. That is, a tuple containing the gathered statistics."""
@@ -224,7 +226,7 @@ class Accum(dict):
         # The unit system is left unspecified until the first observation comes in.
         self.unit_system = None
         
-    def addRecord(self, record, add_hilo=True):
+    def addRecord(self, record, add_hilo=True, weight=1):
         """Add a record to my running statistics. 
         
         The record must have keys 'dateTime' and 'usUnits'."""
@@ -237,7 +239,7 @@ class Accum(dict):
             # Get the proper function ...
             func = get_add_function(obs_type)
             # ... then call it.
-            func(self, record, obs_type, add_hilo)
+            func(self, record, obs_type, add_hilo, weight)
                             
     def updateHiLo(self, accumulator):
         """Merge the high/low stats of another accumulator into me."""
@@ -247,9 +249,14 @@ class Accum(dict):
         self._check_units(accumulator.unit_system)
         
         for obs_type in accumulator:
-            self.init_type(obs_type)
-            self[obs_type].mergeHiLo(accumulator[obs_type])
-                    
+            # Initialize the type if we have not seen it before
+            self._init_type(obs_type)
+            
+            # Get the proper function ...
+            func = get_merge_function(obs_type)
+            # ... then call it
+            func(self, accumulator, obs_type)
+
     def getRecord(self):
         """Extract a record out of the results in the accumulator."""
         
@@ -274,48 +281,26 @@ class Accum(dict):
 
     def set_stats(self, obs_type, stats_tuple):
         
-        self.init_type(obs_type)
+        self._init_type(obs_type)
         self[obs_type].setStats(stats_tuple)
-        
-    def wind_extract(self, record, obs_type):
-        """Extract wind values from myself, and put in a record."""
-        # Wind records must be flattened into the separate categories:
-        record['windSpeed'] = self[obs_type].avg
-        record['windDir'] = self[obs_type].vec_dir
-        record['windGust'] = self[obs_type].max
-        record['windGustDir'] = self[obs_type].max_dir
-        
-    def sum_extract(self, record, obs_type):
-        record[obs_type] = self[obs_type].sum
-        
-    def last_extract(self, record, obs_type):
-        record[obs_type] = self[obs_type].last
-        
-    def avg_extract(self, record, obs_type):
-        record[obs_type] = self[obs_type].avg
-        
-    def init_type(self, obs_type):
-        """Add a given observation type to my dictionary."""
-        # Do nothing if this type has already been initialized:
-        if obs_type in self:
-            return
 
-        # Get a new accumulator of the proper type
-        self[obs_type] = new_accumulator(obs_type)
+    #
+    # Begin add functions. These add a record to the accumulator.
+    #
             
-    def add_value(self, record, obs_type, add_hilo):
+    def add_value(self, record, obs_type, add_hilo, weight):
         """Add a single observation to myself."""
 
         val = record[obs_type]
 
         # If the type has not been seen before, initialize it
-        self.init_type(obs_type)
+        self._init_type(obs_type)
         # Then add to highs/lows, and to the running sum:
         if add_hilo: 
             self[obs_type].addHiLo(val, record['dateTime'])
-        self[obs_type].addSum(val)
+        self[obs_type].addSum(val, weight=weight)
 
-    def add_wind_value(self, record, obs_type, add_hilo):
+    def add_wind_value(self, record, obs_type, add_hilo, weight):
         """Add a single observation of type wind to myself."""
 
         if obs_type in ['windDir', 'windGust', 'windGustDir']:
@@ -325,23 +310,92 @@ class Accum(dict):
         
         # First add it to regular old 'windSpeed', then
         # treat it like a vector.
-        self.add_value(record, obs_type, add_hilo)
+        self.add_value(record, obs_type, add_hilo, weight)
         
         # If the type has not been seen before, initialize it
-        self.init_type('wind')
+        self._init_type('wind')
         # Then add to highs/lows, and to the running sum:
         if add_hilo:
             self['wind'].addHiLo((record.get('windGust'), record.get('windGustDir')), record['dateTime'])
             self['wind'].addHiLo((record.get('windSpeed'), record.get('windDir')), record['dateTime'])
-        self['wind'].addSum((record['windSpeed'], record.get('windDir')))
+        self['wind'].addSum((record['windSpeed'], record.get('windDir')), weight=weight)
         
-    def check_units(self, record, obs_type, add_hilo):  # @UnusedVariable
+    def check_units(self, record, obs_type, add_hilo, weight):  # @UnusedVariable
         if weewx.debug:
             assert(obs_type == 'usUnits')
         self._check_units(record['usUnits'])
 
-    def noop(self, record, obs_type, add_hilo=True):
+    def noop(self, record, obs_type, add_hilo=True, weight=1):
         pass
+
+    #
+    # Begin hi/lo merge functions. These are called when merging two accumulators
+    #
+    
+    def merge_minmax(self, x_accumulator, obs_type):
+        """Merge value in another accumulator, using min/max"""
+
+        self[obs_type].mergeHiLo(x_accumulator[obs_type])
+
+    def merge_avg(self, x_accumulator, obs_type):
+        """Merge value in another accumulator, using avg for max"""
+        x_stats = x_accumulator[obs_type]
+        if x_stats.min is not None:
+            if self[obs_type].min is None or x_stats.min < self[obs_type].min:
+                self[obs_type].min     = x_stats.min
+                self[obs_type].mintime = x_stats.mintime
+        if x_stats.avg is not None:
+            if self[obs_type].max is None or x_stats.avg > self[obs_type].max:
+                self[obs_type].max     = x_stats.avg
+                self[obs_type].maxtime = x_accumulator.timespan.stop
+        if x_stats.lasttime is not None:
+            if self[obs_type].lasttime is None or x_stats.lasttime >= self[obs_type].lasttime:
+                self[obs_type].lasttime = x_stats.lasttime
+                self[obs_type].last     = x_stats.last
+
+    #
+    # Begin extraction functions. These extract a record out of the accumulator.
+    #            
+
+    def extract_wind(self, record, obs_type):
+        """Extract wind values from myself, and put in a record."""
+        # Wind records must be flattened into the separate categories:
+        record['windSpeed']   = self[obs_type].avg
+        record['windDir']     = self[obs_type].vec_dir
+        record['windGust']    = self[obs_type].max
+        record['windGustDir'] = self[obs_type].max_dir
+        
+    def extract_sum(self, record, obs_type):
+        record[obs_type] = self[obs_type].sum
+        
+    def extract_last(self, record, obs_type):
+        record[obs_type] = self[obs_type].last
+        
+    def extract_avg(self, record, obs_type):
+        record[obs_type] = self[obs_type].avg
+        
+    def extract_min(self, record, obs_type):
+        record[obs_type] = self[obs_type].min
+        
+    def extract_max(self, record, obs_type):
+        record[obs_type] = self[obs_type].max
+        
+    def extract_count(self, record, obs_type):
+        record[obs_type] = self[obs_type].count
+        
+
+    #
+    # Miscellaneous, utility functions
+    #
+    
+    def _init_type(self, obs_type):
+        """Add a given observation type to my dictionary."""
+        # Do nothing if this type has already been initialized:
+        if obs_type in self:
+            return
+
+        # Get a new accumulator of the proper type
+        self[obs_type] = new_accumulator(obs_type)
 
     def _check_units(self, new_unit_system):
         # If no unit system has been specified for me yet, adopt the incoming
@@ -351,28 +405,40 @@ class Accum(dict):
         else:
             # Otherwise, make sure they match
             if self.unit_system != new_unit_system:
-                raise ValueError("Unit system mismatch %d v. %d" % (self.unit_system, new_unit_system))
+                raise ValueError("Unit system mismatch %d v. %d" % (self.unit_system, 
+                                                                    new_unit_system))
+
+    @property
+    def isEmpty(self):
+        return self.unit_system is None
             
 #===============================================================================
 #                            Configuration dictionaries
 #===============================================================================
 
 #
-# Mappings from string names to actual functions and classes
+# Mappings from convenient string names, which can be used in a config file,
+# to actual functions and classes
 #
 
 accum_types = {'scalar' : ScalarStats,
                'vector' : VecStats}
 
-adder_functions = {'add'         : Accum.add_value,
-                   'add_wind'    : Accum.add_wind_value,
-                   'check_units' : Accum.check_units,
-                   'noop'        : Accum.noop}
+add_functions = {'add'         : Accum.add_value,
+                 'add_wind'    : Accum.add_wind_value,
+                 'check_units' : Accum.check_units,
+                 'noop'        : Accum.noop}
 
-extract_functions = {'avg'  : Accum.avg_extract,
-                     'sum'  : Accum.sum_extract,
-                     'last' : Accum.last_extract,
-                     'wind' : Accum.wind_extract,
+merge_functions = {'minmax' : Accum.merge_minmax,
+                   'avg'    : Accum.merge_avg}
+
+extract_functions = {'avg'  : Accum.extract_avg,
+                     'sum'  : Accum.extract_sum,
+                     'min'  : Accum.extract_min,
+                     'max'  : Accum.extract_max,
+                     'count': Accum.extract_count,
+                     'last' : Accum.extract_last,
+                     'wind' : Accum.extract_wind,
                      'noop' : Accum.noop}
 
 #
@@ -386,39 +452,42 @@ defaults_ini = """
     [[usUnits]]
         adder = check_units
     [[rain]]
-        aggregation = sum
+        extractor = sum
     [[ET]]
-        aggregation = sum
+        extractor = sum
     [[dayET]]
-        aggregation = last
+        extractor = last
     [[monthET]]
-        aggregation = last
+        extractor = last
     [[yearET]]
-        aggregation = last
+        extractor = last
     [[hourRain]]
-        aggregation = last
+        extractor = last
     [[dayRain]]
-        aggregation = last
+        extractor = last
     [[rain24]]
-        aggregation = last
+        extractor = last
     [[monthRain]]
-        aggregation = last
+        extractor = last
     [[yearRain]]
-        aggregation = last
+        extractor = last
     [[totalRain]]
-        aggregation = last
+        extractor = last
+    [[stormRain]]
+        extractor = last
     [[wind]]
         accumulator = vector
-        aggregation = wind
+        extractor = wind
     [[windSpeed]]
         adder = add_wind
-        aggregation = noop
+        merger = avg
+        extractor = noop
     [[windDir]]
-        aggregation = noop
+        extractor = noop
     [[windGust]]
-        aggregation = noop
+        extractor = noop
     [[windGustDir]]
-        aggregation = noop
+        extractor = noop
 """
 import StringIO
 defaults = configobj.ConfigObj(StringIO.StringIO(defaults_ini))
@@ -426,15 +495,17 @@ del StringIO
 
 accum_type_dict = None
 add_dict        = None
+merge_dict      = None
 extract_dict    = None
 
 def initialize(config_dict):
     """Must be called before using any of the accumulators"""
     
-    global defaults, accum_type_dict, add_dict, extract_dict
+    global defaults, accum_type_dict, merge_dict, add_dict, extract_dict
 
     accum_type_dict = {}
     add_dict        = {}
+    merge_dict      = {}
     extract_dict    = {}
     
     # Initialize with the default values:    
@@ -444,7 +515,7 @@ def initialize(config_dict):
     _initialize(config_dict)
     
 def _initialize(config_dict):
-    global accum_type_dict, add_dict, extract_dict
+    global accum_type_dict, add_dict, merge_dict, extract_dict
 
     extras = config_dict.get('Accumulator', configobj.ConfigObj({}))
     for obs_type in extras.sections:
@@ -456,10 +527,15 @@ def _initialize(config_dict):
         # Get the adder function to use
         add_function = extras[obs_type].get('adder', 'add').lower()
         # Fail hard if this is an unknown adder function
-        add_dict[obs_type] = adder_functions[add_function]
+        add_dict[obs_type] = add_functions[add_function]
 
+        # Get the Hi/Lo function to use
+        hilo_function = extras[obs_type].get('merger', 'minmax').lower()
+        # Fail hard if this is an unknown Hi/Lo function
+        merge_dict[obs_type] = merge_functions[hilo_function]
+        
         # Get the type of extraction function to use
-        extract_function = extras[obs_type].get('aggregation', 'avg').lower()
+        extract_function = extras[obs_type].get('extractor', 'avg').lower()
         # Fail hard if this is an unknown extraction type:
         extract_dict[obs_type] = extract_functions[extract_function]
     
@@ -477,9 +553,16 @@ def get_add_function(obs_type):
         initialize(defaults)
     return add_dict.get(obs_type, Accum.add_value)
     
+def get_merge_function(obs_type):
+    global merge_dict
+    # If the dictionary has not been initialized, do so with the defaults
+    if merge_dict is None:
+        initialize(defaults)
+    return merge_dict.get(obs_type, Accum.merge_minmax)
+
 def get_extract_function(obs_type):
     global extract_dict
     # If the dictionaries have not been initialized, do so with the defaults
     if extract_dict is None:
         initialize(defaults)
-    return extract_dict.get(obs_type, Accum.avg_extract)
+    return extract_dict.get(obs_type, Accum.extract_avg)
