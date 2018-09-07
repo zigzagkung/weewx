@@ -761,7 +761,7 @@ class Manager(object):
                     _rec = _cursor.fetchone()
                     # Don't accumulate any results where there wasn't a record
                     # (signified by a null result)
-                    if _rec and _rec[0] is not None:
+                    if _rec and _rec[0] is not None and stamp.start <= self.last_timestamp:
                         if std_unit_system:
                             if not (std_unit_system == _rec[1] == _rec[2]):
                                 raise weewx.UnsupportedFeature("Unit type cannot change "\

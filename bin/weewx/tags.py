@@ -310,6 +310,24 @@ class ObservationBinder(object):
     def sum_ge(self, val):
         return self._do_query('sum_ge', val=val)
 
+    def sum(self, aggregation_interval=None):
+        return self._do_query('sum', aggregation_interval=aggregation_interval)
+
+    def count(self, aggregation_interval=None):
+        return self._do_query('count', aggregation_interval=aggregation_interval)
+
+    def avg(self, aggregation_interval=None):
+        return self._do_query('avg', aggregation_interval=aggregation_interval)
+
+    def max(self, aggregation_interval=None):
+        return self._do_query('max', aggregation_interval=aggregation_interval)
+
+    def min(self, aggregation_interval=None):
+        return self._do_query('min', aggregation_interval=aggregation_interval)
+
+    def last(self, aggregation_interval=None):
+        return self._do_query('last', aggregation_interval=aggregation_interval)
+
     def __getattr__(self, aggregate_type):
         """Return statistical summary using a given aggregate type.
 
@@ -336,11 +354,17 @@ class ObservationBinder(object):
     def has_data(self):
         return self.db_lookup(self.data_binding).has_data(self.obs_type, self.timespan)
 
-    def _do_query(self, aggregate_type, val=None):
+    def _do_query(self, aggregate_type, val=None, aggregation_interval=None):
         """Run a query against the databases, using the given aggregation type."""
         db_manager = self.db_lookup(self.data_binding)
-        result = db_manager.getAggregate(self.timespan, self.obs_type, aggregate_type, 
+        if aggregation_interval is None:
+            result = db_manager.getAggregate(self.timespan, self.obs_type, aggregate_type, 
                                          val=val, **self.option_dict)
+        else:
+            (_start, _stop, result) = db_manager.getSqlVectors(self.timespan, 
+                                                               self.obs_type, 
+                                                               aggregate_type, 
+                                                               aggregate_interval=aggregation_interval)
         return weewx.units.ValueHelper(result, self.context, self.formatter, self.converter)
         
 #===============================================================================

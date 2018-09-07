@@ -7,6 +7,7 @@
 
 """Data structures and functions for dealing with units."""
 
+import json
 import locale
 import time
 import syslog
@@ -910,18 +911,37 @@ class ValueHelper(object):
         self.formatter = formatter
         self.converter = converter
             
-    def toString(self, addLabel=True, useThisFormat=None, NONE_string=None, localize=True):
+    def toString(self, addLabel=True, useThisFormat=None, NONE_string=None, 
+                 localize=True, delimiter=',', brackets=False):
         """Convert my internally held ValueTuple to a string, using the supplied
         converter and formatter."""
+
         # If the type is unknown, then just return an error string: 
         if isinstance(self.value_t, UnknownType):
             return "?'%s'?" % self.value_t.obs_type 
         # Get the value tuple in the target units:
         vtx = self._raw_value_tuple
-        # Then do the format conversion:
-        s = self.formatter.toString(vtx, self.context, addLabel=addLabel, 
-                                    useThisFormat=useThisFormat, NONE_string=NONE_string, 
-                                    localize=localize)
+        # Is our datum a vector, if format each element separately
+        if hasattr(vtx.value, '__iter__'):
+            # It's a vector
+            _result = []
+            for elm in vtx.value:
+                _vt = weewx.units.ValueTuple(elm, self.value_t.unit, 
+                                             self.value_t.group)
+                _e = self.formatter.toString(_vt, self.context, addLabel=addLabel, 
+                                             useThisFormat=useThisFormat, 
+                                             NONE_string=NONE_string, 
+                                             localize=localize)
+                _result.append(_e)
+            s = delimiter.join(_result) if len(_result) > 0 else None
+            if brackets:
+                s = s.join(['[', ']']) if s else None
+        else:
+            # No vector so just do the format conversion
+            s = self.formatter.toString(vtx, self.context, addLabel=addLabel, 
+                                        useThisFormat=useThisFormat, 
+                                        NONE_string=NONE_string, 
+                                        localize=localize)
         return s
         
     def __str__(self):
@@ -933,10 +953,17 @@ class ValueHelper(object):
         used if None"""
         return self.toString(NONE_string=NONE_string)
     
-    def format(self, format_string, NONE_string=None):
+    def format(self, format_string, NONE_string=None, fmt=None, delimiter=','):
         """Returns a formatted version of the datum, using a user-supplied
         format."""
-        return self.toString(useThisFormat=format_string, NONE_string=NONE_string)
+        if fmt is None:
+            return self.toString(useThisFormat=format_string, NONE_string=NONE_string)
+        elif fmt == 'delimited':
+            return self.toString(useThisFormat=format_string, 
+                                 NONE_string=NONE_string, 
+                                 delimiter=delimiter)
+        elif fmt == 'json':
+            return self.toString(useThisFormat=format_string, NONE_string='null')
     
     def nolabel(self, format_string, NONE_string=None):
         """Returns a formatted version of the datum, using a user-supplied
@@ -948,11 +975,29 @@ class ValueHelper(object):
         # Get the raw value tuple, then ask the formatter to look up an
         # appropriate ordinate:
         return self.formatter.to_ordinal_compass(self._raw_value_tuple)
+
+    def csv(self, delimiter=','):
+        """Returns a csv formatted version of the datum."""
+        return self.toString(addLabel=False, delimiter=delimiter)
         
-    @property
-    def formatted(self):
+    def json(self):
+        """Returns a json formatted version of the datum."""
+        vtx = self._raw_value_tuple
+        return json.dumps(vtx.value)
+    
+    def formatted(self, NONE_string=None, fmt=None, delimiter=','):
         """Return a formatted version of the datum. No label."""
-        return self.toString(addLabel=False)
+        
+        if fmt is None:
+            return self.toString(addLabel=False)
+        elif fmt == 'delimited':
+            return self.toString(addLabel=False,
+                                 NONE_string=NONE_string, 
+                                 delimiter=delimiter)
+        elif fmt == 'json':
+            return self.toString(addLabel=False,
+                                 NONE_string='null',
+                                 brackets=True)
         
     @property
     def raw(self):
