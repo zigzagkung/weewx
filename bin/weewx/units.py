@@ -945,11 +945,8 @@ class ValueHelper(object):
                 s = delimiter.join(_result) if len(_result) > 0 else None
             else:
                 # If it's not delimited it must be json which is the default
-                #s = "%s" % (_result, )
-                #s= json.dumps(_result)
                 s = ','.join(_result) if len(_result) > 0 else 'null'
                 s = s.join(('[',']'))
-                #s = s.replace(" ", "")
         else:
             # No vector so just do the format conversion
             s = self.formatter.toString(vtx, self.context, addLabel=addLabel,
