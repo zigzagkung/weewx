@@ -1032,8 +1032,8 @@ class ValueHelper(object):
                 s = delimiter.join(_result) if len(_result) > 0 else None
             else:
                 # If it's not delimited it must be json which is the default
-                s = "%s" % (_result, )
-                s = s.replace(" ", "")
+                s = ','.join(_result) if len(_result) > 0 else 'null'
+                s = s.join(('[',']'))
         else:
             # No vector so just ask the formatter to look up an appropriate
             # ordinate
@@ -1044,7 +1044,7 @@ class ValueHelper(object):
     def csv(self, delimiter=','):
         """Returns a csv formatted version of the datum."""
 
-        # get a converted raw ValueTuple
+        # Get a converted raw ValueTuple
         vtx = self._raw_value_tuple
         # Pull out the values as strings
         s = [str(x) for x in vtx]
