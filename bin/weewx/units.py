@@ -1047,7 +1047,7 @@ class ValueHelper(object):
         # Get a converted raw ValueTuple
         vtx = self._raw_value_tuple
         # Pull out the values as strings
-        s = [str(x) for x in vtx]
+        s = [str(x) for x in vtx.value]
         # Return a string of delimited values
         return delimiter.join(s) if len(s) > 0 else 'None'
 
