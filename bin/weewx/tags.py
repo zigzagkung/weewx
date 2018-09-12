@@ -25,11 +25,11 @@ class TimeBinder(object):
     def __init__(self, db_lookup, report_time,
                  formatter=weewx.units.Formatter(), converter=weewx.units.Converter(), **option_dict):
         """Initialize an instance of DatabaseBinder.
-        
+
         db_lookup: A function with call signature db_lookup(data_binding), which
         returns a database manager and where data_binding is an optional binding
         name. If not given, then a default binding will be used.
-        
+
         report_time: The time for which the report should be run.
 
         formatter: An instance of weewx.units.Formatter() holding the formatting
@@ -50,30 +50,30 @@ class TimeBinder(object):
         self.option_dict  = option_dict
 
     # What follows is the list of time period attributes:
-    
+
     def trend(self, time_delta=None, time_grace=None, data_binding=None):
         """Returns a TrendObj that is bound to the trend parameters."""
         if time_delta is None:
             time_delta = to_int(self.option_dict['trend'].get('time_delta', 10800))
         if time_grace is None:
             time_grace = to_int(self.option_dict['trend'].get('time_grace', 300))
-        return TrendObj(time_delta, time_grace, self.db_lookup, data_binding, self.report_time, 
+        return TrendObj(time_delta, time_grace, self.db_lookup, data_binding, self.report_time,
                  self.formatter, self.converter, **self.option_dict)
 
     def hour(self, data_binding=None, hours_ago=0):
-        return TimespanBinder(weeutil.weeutil.archiveHoursAgoSpan(self.report_time, hours_ago=hours_ago), 
-                              self.db_lookup, data_binding=data_binding, 
+        return TimespanBinder(weeutil.weeutil.archiveHoursAgoSpan(self.report_time, hours_ago=hours_ago),
+                              self.db_lookup, data_binding=data_binding,
                               context='day', formatter=self.formatter, converter=self.converter,
                               **self.option_dict)
-        
+
     def day(self, data_binding=None, days_ago=0):
-        return TimespanBinder(weeutil.weeutil.archiveDaySpan(self.report_time, days_ago=days_ago), 
-                              self.db_lookup, data_binding=data_binding, 
+        return TimespanBinder(weeutil.weeutil.archiveDaySpan(self.report_time, days_ago=days_ago),
+                              self.db_lookup, data_binding=data_binding,
                               context='day', formatter=self.formatter, converter=self.converter,
                               **self.option_dict)
     def yesterday(self, data_binding=None):
         return self.day(data_binding, days_ago=1)
-    
+
     def week(self, data_binding=None, weeks_ago=0):
         week_start = to_int(self.option_dict.get('week_start', 6))
         return TimespanBinder(weeutil.weeutil.archiveWeekSpan(self.report_time, week_start, weeks_ago=weeks_ago),
@@ -83,7 +83,7 @@ class TimeBinder(object):
     def month(self, data_binding=None, months_ago=0):
         return TimespanBinder(weeutil.weeutil.archiveMonthSpan(self.report_time, months_ago=months_ago),
                               self.db_lookup, data_binding=data_binding,
-                              context='month', formatter=self.formatter, converter=self.converter, 
+                              context='month', formatter=self.formatter, converter=self.converter,
                               **self.option_dict)
     def year(self, data_binding=None, years_ago=0):
         return TimespanBinder(weeutil.weeutil.archiveYearSpan(self.report_time, years_ago=years_ago),
@@ -94,12 +94,12 @@ class TimeBinder(object):
         rain_year_start = to_int(self.option_dict.get('rain_year_start', 1))
         return TimespanBinder(weeutil.weeutil.archiveRainYearSpan(self.report_time, rain_year_start),
                               self.db_lookup, data_binding=data_binding,
-                              context='rainyear',  formatter=self.formatter, converter=self.converter, 
+                              context='rainyear',  formatter=self.formatter, converter=self.converter,
                               **self.option_dict)
     def span(self, data_binding=None, time_delta=0, hour_delta=0, day_delta=0, week_delta=0, month_delta=0, year_delta=0):
-        return TimespanBinder(weeutil.weeutil.archiveSpanSpan(self.report_time, time_delta=time_delta, 
-                              hour_delta=hour_delta, day_delta=day_delta, week_delta=week_delta, month_delta=month_delta, year_delta=year_delta), 
-                              self.db_lookup, data_binding=data_binding, 
+        return TimespanBinder(weeutil.weeutil.archiveSpanSpan(self.report_time, time_delta=time_delta,
+                              hour_delta=hour_delta, day_delta=day_delta, week_delta=week_delta, month_delta=month_delta, year_delta=year_delta),
+                              self.db_lookup, data_binding=data_binding,
                               context='day', formatter=self.formatter, converter=self.converter,
                               **self.option_dict)
 
@@ -140,7 +140,7 @@ class TimespanBinder(object):
         db_lookup: A function with call signature db_lookup(data_binding), which
         returns a database manager and where data_binding is an optional binding
         name. If not given, then a default binding will be used.
-        
+
         data_binding: If non-None, then use this data binding.
 
         context: A tag name for the timespan. This is something like 'current', 'day',
@@ -171,7 +171,7 @@ class TimespanBinder(object):
     def records(self, data_binding=None):
         manager = self.db_lookup(data_binding)
         for record in manager.genBatchRecords(self.timespan.start, self.timespan.stop):
-            yield CurrentObj(self.db_lookup, None, record['dateTime'], self.formatter, 
+            yield CurrentObj(self.db_lookup, None, record['dateTime'], self.formatter,
                              self.converter, record=record)
 
     # Iterate over custom span
@@ -179,7 +179,7 @@ class TimespanBinder(object):
         for span in weeutil.weeutil.intervalgen(self.timespan.start, self.timespan.stop, interval):
             yield TimespanBinder(span, self.db_lookup, data_binding,
                                  context, self.formatter, self.converter, **self.option_dict)
-    
+
     # Iterate over hours in the time period:
     def hours(self, data_binding=None):
         return TimespanBinder._seqGenerator(weeutil.weeutil.genHourSpans, self.timespan,
@@ -222,7 +222,7 @@ class TimespanBinder(object):
     def end(self):
         val = weewx.units.ValueTuple(self.timespan.stop, 'unix_epoch', 'group_time')
         return weewx.units.ValueHelper(val, self.context, self.formatter, self.converter)
-    
+
     # Alias for the start time:
     dateTime = start
 
@@ -268,7 +268,7 @@ class ObservationBinder(object):
         db_lookup: A function with call signature db_lookup(data_binding), which
         returns a database manager and where data_binding is an optional binding
         name. If not given, then a default binding will be used.
-        
+
         data_binding: If non-None, then use this data binding.
 
         context: A tag name for the timespan. This is something like 'current', 'day',
@@ -322,11 +322,20 @@ class ObservationBinder(object):
     def max(self, aggregation_interval=None):
         return self._do_query('max', aggregation_interval=aggregation_interval)
 
+    def maxtime(self, aggregation_interval=None):
+        return self._do_query('maxtime', aggregation_interval=aggregation_interval)
+
     def min(self, aggregation_interval=None):
         return self._do_query('min', aggregation_interval=aggregation_interval)
 
+    def mintime(self, aggregation_interval=None):
+        return self._do_query('mintime', aggregation_interval=aggregation_interval)
+
     def last(self, aggregation_interval=None):
         return self._do_query('last', aggregation_interval=aggregation_interval)
+
+    def lasttime(self, aggregation_interval=None):
+        return self._do_query('lasttime', aggregation_interval=aggregation_interval)
 
     def __getattr__(self, aggregate_type):
         """Return statistical summary using a given aggregate type.
@@ -345,7 +354,7 @@ class ObservationBinder(object):
         if aggregate_type in ['__call__', 'has_key']:
             raise AttributeError
         return self._do_query(aggregate_type)
-    
+
     @property
     def exists(self):
         return self.db_lookup(self.data_binding).exists(self.obs_type)
@@ -358,15 +367,15 @@ class ObservationBinder(object):
         """Run a query against the databases, using the given aggregation type."""
         db_manager = self.db_lookup(self.data_binding)
         if aggregation_interval is None:
-            result = db_manager.getAggregate(self.timespan, self.obs_type, aggregate_type, 
+            result = db_manager.getAggregate(self.timespan, self.obs_type, aggregate_type,
                                          val=val, **self.option_dict)
         else:
-            (_start, _stop, result) = db_manager.getSqlVectors(self.timespan, 
-                                                               self.obs_type, 
-                                                               aggregate_type, 
+            (_start, _stop, result) = db_manager.getSqlVectors(self.timespan,
+                                                               self.obs_type,
+                                                               aggregate_type,
                                                                aggregate_interval=aggregation_interval)
         return weewx.units.ValueHelper(result, self.context, self.formatter, self.converter)
-        
+
 #===============================================================================
 #                             Class RecordBinder
 #===============================================================================
@@ -380,7 +389,7 @@ class RecordBinder(object):
         self.formatter   = formatter
         self.converter   = converter
         self.record      = record
-        
+
     def current(self, timestamp=None, max_delta=None, data_binding=None):
         """Return a CurrentObj"""
         if timestamp is None:
@@ -393,19 +402,19 @@ class RecordBinder(object):
         manager = self.db_lookup(data_binding)
         timestamp = manager.lastGoodStamp()
         return self.current(timestamp, data_binding=data_binding)
-    
+
 #===============================================================================
 #                             Class CurrentObj
 #===============================================================================
 
 class CurrentObj(object):
     """Helper class for the "Current" record. Does the database hit lazily.
-    
+
     This class allows tags such as:
       $current.barometer
     """
-        
-    def __init__(self, db_lookup, data_binding, current_time, 
+
+    def __init__(self, db_lookup, data_binding, current_time,
                  formatter, converter, max_delta=None, record=None):
         self.db_lookup    = db_lookup
         self.data_binding = data_binding
@@ -414,7 +423,7 @@ class CurrentObj(object):
         self.converter    = converter
         self.max_delta    = max_delta
         self.record       = record
-        
+
     def __getattr__(self, obs_type):
         """Return the given observation type."""
         # This is to get around bugs in the Python version of Cheetah's namemapper:
@@ -433,7 +442,7 @@ class CurrentObj(object):
             except weewx.UnknownBinding:
                 vt = weewx.units.UnknownType(self.data_binding)
             else:
-                # ... get the current record from it ...  
+                # ... get the current record from it ...
                 record  = db_manager.getRecord(self.current_time, max_delta=self.max_delta)
                 # ... form a ValueTuple ...
                 vt = weewx.units.as_value_tuple(record, obs_type)
@@ -442,24 +451,24 @@ class CurrentObj(object):
         return weewx.units.ValueHelper(vt, 'current',
                                        self.formatter,
                                        self.converter)
-        
+
 #===============================================================================
 #                             Class TrendObj
 #===============================================================================
 
 class TrendObj(object):
-    """Helper class that calculates trends. 
-    
+    """Helper class that calculates trends.
+
     This class allows tags such as:
       $trend.barometer
     """
 
-    def __init__(self, time_delta, time_grace, db_lookup, data_binding, 
+    def __init__(self, time_delta, time_grace, db_lookup, data_binding,
                  nowtime, formatter, converter, **option_dict):  # @UnusedVariable
         """Initialize a Trend object
-        
+
         time_delta: The time difference over which the trend is to be calculated
-        
+
         time_grace: A time within this amount is accepted.
         """
         self.time_delta_val = time_delta
@@ -477,7 +486,7 @@ class TrendObj(object):
                                                   'current',
                                                   self.formatter,
                                                   self.converter)
-        
+
     def __getattr__(self, obs_type):
         """Return the trend for the given observation type."""
         # This is to get around bugs in the Python version of Cheetah's namemapper:
@@ -485,7 +494,7 @@ class TrendObj(object):
             raise AttributeError
 
         db_manager  = self.db_lookup(self.data_binding)
-        # Get the current record, and one "time_delta" ago:        
+        # Get the current record, and one "time_delta" ago:
         now_record  = db_manager.getRecord(self.nowtime, self.time_grace_val)
         then_record = db_manager.getRecord(self.nowtime - self.time_delta_val, self.time_grace_val)
 
@@ -494,7 +503,7 @@ class TrendObj(object):
             # No. One is missing.
             trend = ValueTuple(None, None, None)
         else:
-            # Both records exist. 
+            # Both records exist.
             # Check to see if the observation type is known
             if obs_type not in now_record or obs_type not in then_record:
                 # obs_type is unknown. Signal it
@@ -513,7 +522,7 @@ class TrendObj(object):
                     trend = ValueTuple(None, now_vtc.unit, now_vtc.group)
                 else:
                     trend = now_vtc - then_vtc
-            
+
         # Return the results as a ValueHelper. Use the formatting and labeling
         # options from the current time record. The user can always override
         # these.

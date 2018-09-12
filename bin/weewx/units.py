@@ -928,14 +928,41 @@ class ValueHelper(object):
             _result = []
             # Iterate over each element of the vector
             for elm in vtx.value:
-                # Obtain the element as a ValueTuple
-                _vt = weewx.units.ValueTuple(elm, self.value_t.unit,
-                                             self.value_t.group)
-                # Format the element
-                _e = self.formatter.toString(_vt, self.context, addLabel=addLabel,
-                                             useThisFormat=useThisFormat,
-                                             NONE_string=NONE_string,
-                                             localize=localize)
+                # The vector could be an object of type complex if the source
+                # was `windvec` or `windgustvec`. If so the vector will consist
+                # of (x,y) pairs that will need special formatting.
+                if isinstance(elm, complex):
+                    # We have a vector of complex objects
+                    # First get the x (real) component as a ValueTuple
+                    _x_vt = weewx.units.ValueTuple(elm.real, self.value_t.unit,
+                                                   self.value_t.group)
+                    # Now format the x component
+                    _x = self.formatter.toString(_x_vt, self.context, addLabel=False,
+                                                useThisFormat=useThisFormat,
+                                                NONE_string=NONE_string,
+                                                localize=localize)
+                    # Get the y (imag) component as a ValueTuple
+                    _y_vt = weewx.units.ValueTuple(elm.imag, self.value_t.unit,
+                                                   self.value_t.group)
+                    # Now format the y component
+                    _y = self.formatter.toString(_y_vt, self.context, addLabel=False,
+                                                useThisFormat=useThisFormat,
+                                                NONE_string=NONE_string,
+                                                localize=localize)
+                    # Create the x,y pair
+                    _e = ','.join((_x, _y))
+                    # And add the brackets
+                    _e = _e.join(('(', ')'))
+                else:
+                    # We have a plain old number
+                    # Obtain the element as a ValueTuple
+                    _vt = weewx.units.ValueTuple(elm, self.value_t.unit,
+                                                self.value_t.group)
+                    # Format the element
+                    _e = self.formatter.toString(_vt, self.context, addLabel=addLabel,
+                                                useThisFormat=useThisFormat,
+                                                NONE_string=NONE_string,
+                                                localize=localize)
                 # Add the formatted element to our result list
                 _result.append(_e)
             # Is fmt is specified, if so we only know about delimited and json
