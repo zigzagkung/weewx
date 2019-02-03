@@ -72,6 +72,9 @@ class ScalarStats(object):
         ts:  The timestamp.
         """
         if val is not None:
+            # Check for non-numbers and for NaN
+            if not isinstance(val, (float, int)) or val != val:
+                raise ValueError("accum: ScalarStats.addHiLo expected float or int, got %s" % val)
             if self.min is None or val < self.min:
                 self.min = val
                 self.mintime = ts
@@ -85,9 +88,12 @@ class ScalarStats(object):
     def addSum(self, val, weight=1):
         """Add a scalar value to my running sum and count."""
         if val is not None:
-            self.sum += val
-            self.count += 1
-            self.wsum += val * weight
+            # Check for non-numbers and for NaN
+            if not isinstance(val, (float, int)) or val != val:
+                raise ValueError("accum: ScalarStats.addSum expected float or int, got %s" % val)
+            self.sum     += val
+            self.count   += 1
+            self.wsum    += val * weight
             self.sumtime += weight
         
     @property
@@ -161,6 +167,9 @@ class VecStats(object):
         """
         speed, dirN = val
         if speed is not None:
+            # Check for non-numbers and for NaN
+            if not isinstance(speed, (float, int)) or speed != speed:
+                raise ValueError("accum: VecStats.addHiLo expected float or int, got %s" % speed)
             if self.min is None or speed < self.min:
                 self.min = speed
                 self.mintime = ts
@@ -178,12 +187,15 @@ class VecStats(object):
         """
         speed, dirN = val
         if speed is not None:
-            self.sum += speed
-            self.count += 1
-            self.wsum += weight * speed
-            self.sumtime += weight
-            self.squaresum += speed ** 2
-            self.wsquaresum += weight * speed ** 2
+            # Check for non-numbers and for NaN
+            if not isinstance(speed, (float, int)) or speed != speed:
+                raise ValueError("accum: VecStats.addSum expected float or int, got %s" % speed)
+            self.sum         += speed
+            self.count       += 1
+            self.wsum        += weight * speed
+            self.sumtime     += weight
+            self.squaresum   += speed**2
+            self.wsquaresum  += weight * speed**2
             if dirN is not None :
                 self.xsum += weight * speed * math.cos(math.radians(90.0 - dirN))
                 self.ysum += weight * speed * math.sin(math.radians(90.0 - dirN))
@@ -235,7 +247,7 @@ class Accum(dict):
         
         # Check to see if the record is within my observation timespan 
         if not self.timespan.includesArchiveTime(record['dateTime']):
-            raise OutOfSpan, "Attempt to add out-of-interval record"
+            raise OutOfSpan("Attempt to add out-of-interval record")
 
         for obs_type in record:
             # Get the proper function ...
@@ -500,8 +512,13 @@ defaults_ini = """
     [[windGustDir]]
         extractor = noop
 """
-import StringIO
-defaults = configobj.ConfigObj(StringIO.StringIO(defaults_ini))
+try:
+    # Python 2
+    from StringIO import StringIO
+except ImportError:
+    # Python 3
+    from io import StringIO
+defaults = configobj.ConfigObj(StringIO(defaults_ini))
 del StringIO
 
 accum_type_dict = None
