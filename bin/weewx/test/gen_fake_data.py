@@ -14,7 +14,7 @@ import math
 import syslog
 import time
 
-import schemas.wview-extended
+import schemas.wview
 import weedb
 import weewx.manager
 
@@ -38,7 +38,7 @@ avg_baro = 30.0
 # Archive interval in seconds:
 interval = 600
 
-schema = schemas.wview-extended.schema
+schema = schemas.wview.schema
 
 def configDatabases(config_dict, database_type):
     config_dict['DataBindings']['wx_binding']['database'] = "archive_" + database_type
