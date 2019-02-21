@@ -54,12 +54,17 @@ CHANGE HISTORY
 0.20 02/13/2019
 Changed from using serial.readline() to serial.read().
 Ported to Python 3
--tk
 
 0.21 02/21/2019
 Now uses serial.inWaiting() to get the number of  bytes to be read,
 instead of using a fixed number.
+
+0.22 02/21/2019
+Read a whole buffer full of bytes, but throw away any partial packets.
+
 """
+
+
 
 from __future__ import with_statement
 from __future__ import print_function
@@ -71,10 +76,10 @@ import time
 import weewx.drivers
 import weewx.wxformulas
 from weewx.units import INHG_PER_MBAR, MILE_PER_KM
-from weeutil.weeutil import timestamp_to_string
+from weeutil.weeutil import timestamp_to_string, GenWithPeek
 
 DRIVER_NAME = 'Ultimeter'
-DRIVER_VERSION = '0.21'
+DRIVER_VERSION = '0.22'
 
 
 def loader(config_dict, _):
@@ -163,9 +168,10 @@ class Station(object):
 
     DEFAULT_PORT = '/dev/ttyUSB0'
 
-    def __init__(self, port, debug_serial=0):
-        self._debug_serial = debug_serial
+    def __init__(self, port, debug_serial=0, retry_read=0.5):
         self.port = port
+        self._debug_serial = debug_serial
+        self.retry_read = retry_read
         self.baudrate = 2400
         self.timeout = 3 # seconds
         self.serial_port = None
@@ -240,22 +246,9 @@ class Station(object):
                 logdbg("set station to modem mode")
             self.serial_port.write(b">\r")
 
-    def get_readings(self):
-        N = self.serial_port.inWaiting()
-        buf = self.serial_port.read(N)
-        if self._debug_serial:
-            logdbg("station said: %s" % _fmt(buf))
-        return buf
-
-    def validate_buffer(self, buf):
-        if len(buf) not in [44, 48, 52]:
-            raise weewx.WeeWxIOError("Unexpected buffer length %d" % len(buf))
-        if buf[0:2] != b'!!':
-            raise weewx.WeeWxIOError("Unexpected header bytes '%s'" % buf[0:2])
-        return buf
-
     def get_readings_with_retry(self, max_tries=5, retry_wait=3):
-        for ntries in range(0, max_tries):
+        """Return a packet, retrying as necessary"""
+        for ntries in range(max_tries):
             try:
                 buf = self.get_readings()
                 self.validate_buffer(buf)
@@ -268,6 +261,59 @@ class Station(object):
             msg = "Max retries (%d) exceeded for readings" % max_tries
             logerr(msg)
             raise weewx.RetriesExceeded(msg)
+
+    def get_readings(self):
+        """Return a single packet. The packet will start with a double exclamation point,
+        and end with \r\n"""
+
+        # Wrap the raw bytes generator with a GenWithPeak generator, which allows us
+        # to peek at the next byte
+        gen_bytes = GenWithPeek(self._gen_bytes_raw())
+
+        # Start by throwing away any partial packets:
+        for ibyte in gen_bytes:
+            if ibyte == b'!' and gen_bytes.peek() == b'!':
+                break
+
+        # Save the first exclamation point
+        buf = ibyte
+        # Now march through the bytes
+        for ibyte in gen_bytes:
+            # Add the new byte
+            buf += ibyte
+            # If this is a \r and the next character is \n, then we've reached the
+            # end of a line
+            if ibyte == b'\r' and gen_bytes.peek() == b'\n':
+                # Add the \n
+                buf += next(gen_bytes)
+                if self._debug_serial:
+                    logdbg("station said: %s" % _fmt(buf))
+                return buf
+
+    def _gen_bytes_raw(self):
+        """Generator function that yields raw bytes."""
+        while True:
+            # Get all the bytes available
+            N = self.serial_port.inWaiting()
+            buf = self.serial_port.read(N)
+            # Was anything available?
+            if len(buf):
+                # Yes. Return it byte-by-byte
+                for b in buf:
+                    yield b
+            else:
+                # No. Sleep a bit, then try again
+                time.sleep(self.retry_read)
+
+    def validate_buffer(self, buf):
+        """Validate that the buffer is in canonical form"""
+        if len(buf) not in [44, 48, 52]:
+            raise weewx.WeeWxIOError("Unexpected buffer length %d" % len(buf))
+        if buf[0:2] != b'!!':
+            raise weewx.WeeWxIOError("Unexpected header bytes '%s'" % buf[0:2])
+        if buf[-2:] != b'\r\n':
+            raise weewx.WeeWXIOError("Unexpected tail bytes '%s'" % buf[-2:])
+        return buf
 
     @staticmethod
     def parse_readings(raw):
