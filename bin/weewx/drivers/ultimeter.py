@@ -56,6 +56,9 @@ Changed from using serial.readline() to serial.read().
 Ported to Python 3
 -tk
 
+0.21 02/21/2019
+Now uses serial.inWaiting() to get the number of  bytes to be read,
+instead of using a fixed number.
 """
 
 from __future__ import with_statement
@@ -71,7 +74,7 @@ from weewx.units import INHG_PER_MBAR, MILE_PER_KM
 from weeutil.weeutil import timestamp_to_string
 
 DRIVER_NAME = 'Ultimeter'
-DRIVER_VERSION = '0.20'
+DRIVER_VERSION = '0.21'
 
 
 def loader(config_dict, _):
@@ -115,15 +118,12 @@ class UltimeterDriver(weewx.drivers.AbstractDevice):
         self.port = stn_dict.get('port', Station.DEFAULT_PORT)
         self.max_tries = int(stn_dict.get('max_tries', 5))
         self.retry_wait = int(stn_dict.get('retry_wait', 3))
-        # Most models use 52 byte fields, some use 48 or 50.
-        # See http://www.peetbros.com/shop/custom.aspx?recid=29
-        buffer_length = int(stn_dict.get('buffer_length', 52))
         debug_serial = int(stn_dict.get('debug_serial', 0))
         self.last_rain = None
 
         loginf('driver version is %s' % DRIVER_VERSION)
         loginf('using serial port %s' % self.port)
-        self.station = Station(self.port, debug_serial=debug_serial, buffer_length=buffer_length)
+        self.station = Station(self.port, debug_serial=debug_serial)
         self.station.open()
 
     def closePort(self):
@@ -163,9 +163,8 @@ class Station(object):
 
     DEFAULT_PORT = '/dev/ttyUSB0'
 
-    def __init__(self, port, debug_serial=0, buffer_length=52):
+    def __init__(self, port, debug_serial=0):
         self._debug_serial = debug_serial
-        self.buffer_length = buffer_length
         self.port = port
         self.baudrate = 2400
         self.timeout = 3 # seconds
@@ -242,13 +241,14 @@ class Station(object):
             self.serial_port.write(b">\r")
 
     def get_readings(self):
-        buf = self.serial_port.read(self.buffer_length)
+        N = self.serial_port.inWaiting()
+        buf = self.serial_port.read(N)
         if self._debug_serial:
             logdbg("station said: %s" % _fmt(buf))
         return buf
 
     def validate_buffer(self, buf):
-        if len(buf) != self.buffer_length:
+        if len(buf) not in [48, 50, 52]:
             raise weewx.WeeWxIOError("Unexpected buffer length %d" % len(buf))
         if buf[0:2] != b'!!':
             raise weewx.WeeWxIOError("Unexpected header bytes '%s'" % buf[0:2])
