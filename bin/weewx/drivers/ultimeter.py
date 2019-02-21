@@ -62,9 +62,9 @@ instead of using a fixed number.
 0.22 02/21/2019
 Read a whole buffer full of bytes, but throw away any partial packets.
 
+0.23 02/21/2019
+Added debug info when no bytes are received.
 """
-
-
 
 from __future__ import with_statement
 from __future__ import print_function
@@ -79,11 +79,12 @@ from weewx.units import INHG_PER_MBAR, MILE_PER_KM
 from weeutil.weeutil import timestamp_to_string, GenWithPeek
 
 DRIVER_NAME = 'Ultimeter'
-DRIVER_VERSION = '0.22'
+DRIVER_VERSION = '0.23'
 
 
 def loader(config_dict, _):
     return UltimeterDriver(**config_dict[DRIVER_NAME])
+
 
 def confeditor_loader():
     return UltimeterConfEditor()
@@ -92,11 +93,14 @@ def confeditor_loader():
 def logmsg(level, msg):
     syslog.syslog(level, 'ultimeter: %s' % msg)
 
+
 def logdbg(msg):
     logmsg(syslog.LOG_DEBUG, msg)
 
+
 def loginf(msg):
     logmsg(syslog.LOG_INFO, msg)
+
 
 def logerr(msg):
     logmsg(syslog.LOG_ERR, msg)
@@ -107,18 +111,26 @@ def _fmt(x):
 
 
 class UltimeterDriver(weewx.drivers.AbstractDevice):
-    """weewx driver that communicates with a Peet Bros Ultimeter station
+    """WeeWX driver that communicates with a Peet Bros Ultimeter station"""
 
-    model: station model, e.g., 'Ultimeter 2000' or 'Ultimeter 100'
-    [Optional. Default is 'Ultimeter']
-
-    port - serial port
-    [Required. Default is /dev/ttyUSB0]
-
-    max_tries - how often to retry serial communication before giving up
-    [Optional. Default is 5]
-    """
     def __init__(self, **stn_dict):
+        """Initialize an instance of UltimeterDriver
+
+            model: station model, e.g., 'Ultimeter 2000' or 'Ultimeter 100'
+            [Optional. Default is 'Ultimeter']
+
+            port - serial port
+            [Optional. Default is /dev/ttyUSB0]
+
+            max_tries - how often to retry serial communication before giving up
+            [Optional. Default is 5]
+
+            retry_wait -- After an error, how long to wait before retrying.
+            [Optional. Default is 3]
+
+            debug_serial: Set to non-zero for extra debugging info about the serial port.
+            [Optional. Default is 0]
+        """
         self.model = stn_dict.get('model', 'Ultimeter')
         self.port = stn_dict.get('port', Station.DEFAULT_PORT)
         self.max_tries = int(stn_dict.get('max_tries', 5))
@@ -132,7 +144,7 @@ class UltimeterDriver(weewx.drivers.AbstractDevice):
         self.station.open()
 
     def closePort(self):
-        if self.station is not None:
+        if self.station:
             self.station.close()
             self.station = None
 
@@ -165,15 +177,14 @@ class UltimeterDriver(weewx.drivers.AbstractDevice):
 
 
 class Station(object):
-
     DEFAULT_PORT = '/dev/ttyUSB0'
 
     def __init__(self, port, debug_serial=0, retry_read=0.5):
         self.port = port
         self._debug_serial = debug_serial
-        self.retry_read = retry_read
+        self.retry_read = retry_read  # Seconds
         self.baudrate = 2400
-        self.timeout = 3 # seconds
+        self.timeout = 3  # seconds
         self.serial_port = None
         # setting the year works only for models 2004 and later
         self.can_set_year = True
@@ -303,6 +314,7 @@ class Station(object):
                     yield b
             else:
                 # No. Sleep a bit, then try again
+                logdbg("No bytes available. Sleeping %.1f seconds" % self.retry_read)
                 time.sleep(self.retry_read)
 
     def validate_buffer(self, buf):
