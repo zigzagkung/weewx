@@ -248,7 +248,7 @@ class Station(object):
         return buf
 
     def validate_buffer(self, buf):
-        if len(buf) not in [48, 50, 52]:
+        if len(buf) not in [44, 48, 52]:
             raise weewx.WeeWxIOError("Unexpected buffer length %d" % len(buf))
         if buf[0:2] != b'!!':
             raise weewx.WeeWxIOError("Unexpected header bytes '%s'" % buf[0:2])
