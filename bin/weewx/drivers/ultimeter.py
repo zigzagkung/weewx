@@ -64,6 +64,9 @@ Read a whole buffer full of bytes, but throw away any partial packets.
 
 0.23 02/21/2019
 Added debug info when no bytes are received.
+
+0.24 02/26/2019
+Read byte-by-byte.
 """
 
 from __future__ import with_statement
@@ -79,7 +82,7 @@ from weewx.units import INHG_PER_MBAR, MILE_PER_KM
 from weeutil.weeutil import timestamp_to_string, GenWithPeek
 
 DRIVER_NAME = 'Ultimeter'
-DRIVER_VERSION = '0.23'
+DRIVER_VERSION = '0.24'
 
 
 def loader(config_dict, _):
@@ -304,14 +307,12 @@ class Station(object):
     def _gen_bytes_raw(self):
         """Generator function that yields raw bytes."""
         while True:
-            # Get all the bytes available
-            N = self.serial_port.inWaiting()
-            buf = self.serial_port.read(N)
-            # Was anything available?
-            if len(buf):
-                # Yes. Return it byte-by-byte
-                for b in buf:
-                    yield b
+            # Read byte-by-byte. Anything else seems to induce memory leaks...
+            b = self.serial_port.read(1)
+            # Did we get anything?
+            if len(b):
+                # Yes. Return it
+                yield b
             else:
                 # No. Sleep a bit, then try again
                 logdbg("No bytes available. Sleeping %.1f seconds" % self.retry_read)
